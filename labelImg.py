@@ -105,9 +105,17 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # For loading all image under a directory
         self.mImgList = []
-        self.dirname = None
+        #self.dirname = None
         self.labelHist = []
-        self.lastOpenDir = None
+        #self.lastOpenDir = None
+
+        if settings[SETTING_LAST_OPEN_DIR] and os.path.exists(settings[SETTING_LAST_OPEN_DIR]):
+            self.lastOpenDir = settings[SETTING_LAST_OPEN_DIR]
+            self.dirname = settings[SETTING_LAST_OPEN_DIR]
+            print 'change dirname and lastopendir'
+        else:
+            self.lastOpenDir = None
+            self.dirname = None
 
         # Whether we need to save or not.
         self.dirty = False
@@ -228,7 +236,7 @@ class MainWindow(QMainWindow, WindowMixin):
                                 'Ctrl+Shift+O', 'open', u'Open Annotation')
 
         openNextImg = action('&Next Image', self.openNextImg,
-                             'f', 'next', u'Open Next')
+                             'd', 'next', u'Open Next')
 
         openPrevImg = action('&Prev Image', self.openPrevImg,
                              'a', 'prev', u'Open Prev')
@@ -406,7 +414,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Application state.
         self.image = QImage()
-        self.filePath = ustr(defaultFilename)
+        self.filePath = ustr(self.lastOpenDir)
         self.recentFiles = []
         self.maxRecent = 7
         self.lineColor = None
@@ -471,9 +479,10 @@ class MainWindow(QMainWindow, WindowMixin):
         self.statusBar().addPermanentWidget(self.labelCoordinates)
 
         # Open Dir if deafult file
-        if self.filePath and os.path.isdir(self.filePath):
-            self.openDirDialog(dirpath=self.filePath)
-
+        if self.filePath and os.path.isdir(self.filePath):######
+            self.importDirImages(self.filePath)
+        print settings[SETTING_RECENT_FILES][0]
+        self.queueEvent(partial(self.loadFile, settings[SETTING_RECENT_FILES][0] or ""))                #########
     ## Support Functions ##
     def set_format(self, save_format):
         if save_format == 'PascalVOC':
@@ -598,7 +607,7 @@ class MainWindow(QMainWindow, WindowMixin):
         msg = u'Name:{0} \nApp Version:{1} \n{2} '.format(__appname__, __version__, sys.version_info)
         QMessageBox.information(self, u'Information', msg)
 
-    def createShape(self):
+    def createShape(self):                                          ##should set priority
         assert self.beginner()
         self.canvas.setEditing(False)
         self.actions.create.setEnabled(False)
@@ -1082,6 +1091,9 @@ class MainWindow(QMainWindow, WindowMixin):
         settings[SETTING_LINE_COLOR] = self.lineColor
         settings[SETTING_FILL_COLOR] = self.fillColor
         settings[SETTING_RECENT_FILES] = self.recentFiles
+        
+        print self.recentFiles[0]
+        
         settings[SETTING_ADVANCE_MODE] = not self._beginner
         if self.defaultSaveDir and os.path.exists(self.defaultSaveDir):
             settings[SETTING_SAVE_DIR] = ustr(self.defaultSaveDir)
@@ -1151,7 +1163,7 @@ class MainWindow(QMainWindow, WindowMixin):
     def openDirDialog(self, _value=False, dirpath=None):
         if not self.mayContinue():
             return
-
+        print 'open dir'                                            #####
         defaultOpenDirPath = dirpath if dirpath else '.'
         if self.lastOpenDir and os.path.exists(self.lastOpenDir):
             defaultOpenDirPath = self.lastOpenDir
@@ -1236,6 +1248,7 @@ class MainWindow(QMainWindow, WindowMixin):
         filename = None
         if self.filePath is None:
             filename = self.mImgList[0]
+            print 'opennext is' ,filename
         else:
             currIndex = self.mImgList.index(self.filePath)
             if currIndex + 1 < len(self.mImgList):
