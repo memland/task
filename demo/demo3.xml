@@ -1,7 +1,7 @@
 <annotation verified="yes">
 	<folder>demo</folder>
 	<filename>demo3.jpg</filename>
-	<path>D:\labelImg-master\labelImg\demo\demo3.jpg</path>
+	<path>D:\labelImg-master-exe\demo\demo3.jpg</path>
 	<source>
 		<database>Unknown</database>
 	</source>
@@ -309,6 +309,42 @@
 			<ymin>55</ymin>
 			<xmax>336</xmax>
 			<ymax>111</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>asdf</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>350</xmin>
+			<ymin>160</ymin>
+			<xmax>548</xmax>
+			<ymax>326</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>asdf</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>254</xmin>
+			<ymin>116</ymin>
+			<xmax>292</xmax>
+			<ymax>159</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>asdf</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>516</xmin>
+			<ymin>127</ymin>
+			<xmax>553</xmax>
+			<ymax>167</ymax>
 		</bndbox>
 	</object>
 </annotation>

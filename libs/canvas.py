@@ -32,7 +32,7 @@ class Canvas(QWidget):
     shapeMoved = pyqtSignal()
     drawingPolygon = pyqtSignal(bool)
 
-    scrollReq = pyqtSignal(int, int)                            ##########
+    scrollReq = pyqtSignal(int, int)                                    ##########connect slot
   
     CREATE, EDIT = list(range(2))
 
@@ -61,7 +61,7 @@ class Canvas(QWidget):
         self._painter = QPainter()
         self._cursor = CURSOR_DEFAULT
 
-        self.dragPosition = QPointF()                                 ####
+        self.dragPosition = QPointF()                                   #########
 
         
         # Menus:
@@ -174,7 +174,7 @@ class Canvas(QWidget):
                 #self.setStatusTip(self.toolTip())
                 
             else:
-                self.repaint()                                           ######
+                self.repaint()                                                                  ######
             
            # print'drag'
                 movpos =  ev.globalPos()- self.dragPosition
@@ -183,10 +183,10 @@ class Canvas(QWidget):
         #self.scroll(movpos.x(),movpos.y())
             #    if movpos.y() < 80 and movpos.x() < 80 and movpos.y() > -80 and movpos.x() > -80:
                 #print self.dragPosition.x(),self.dragPosition.y()
-                if self.dragPosition.x()!= 0 and self.dragPosition.y()!=0:
+                if self.dragPosition.x()!= 0 and self.dragPosition.y()!=0:                      #####make sure is not the first time drag
                     self.scrollReq.emit(movpos.x(),movpos.y())
             #    print h_bar
-                self.dragPosition = ev.globalPos()# - self.frameGeometry().topLeft()          ######
+                self.dragPosition = ev.globalPos()# - self.frameGeometry().topLeft()            ######
                 """if movpos.y() > 3:
                     self.scrollRequest.emit(150, Qt.Vertical)
                 elif movpos.y() < -3:
@@ -206,7 +206,7 @@ class Canvas(QWidget):
         # - Highlight vertex
         # Update shape/vertex fill and tooltip value accordingly.
         self.setToolTip("Image")
-        for shape in reversed([s for s in self.shapes if self.isVisible(s)]):
+        for shape in reversed([s for s in self.shapes if self.isVisible(s)]):                   ####know if select vertex
             # Look for a nearby vertex to highlight. If that fails,
             # check if we happen to be inside a shape.
             index = shape.nearestVertex(pos, self.epsilon)
@@ -257,7 +257,7 @@ class Canvas(QWidget):
             self.prevPoint = pos
             self.repaint()
 
-        self.dragPosition = QPointF()
+        self.dragPosition = QPointF()                                                           ####clear dragPosition
 
   
                         
@@ -278,7 +278,7 @@ class Canvas(QWidget):
             else:
                 self.overrideCursor(CURSOR_GRAB)
         elif ev.button() == Qt.LeftButton:
-           # print 'hello t'                                           #change
+        
             pos = self.transformPos(ev.pos())
             if self.drawing():
                 self.handleDrawing(pos)
@@ -362,7 +362,7 @@ class Canvas(QWidget):
             self.selectShape(shape)
             return
         
-        if isselectshape and self.isVisible(isselectshape):
+        if isselectshape and self.isVisible(isselectshape):                                                 ###seleced shape has highest priority 
             if curselectshape:
                 print 'distance is',curselectshape.nearestVertex(point, self.epsilon)
                 if curselectshape.nearestVertex(point, self.epsilon) is not None:
@@ -371,7 +371,7 @@ class Canvas(QWidget):
                     curselectshape.highlightVertex(self.hVertex, curselectshape.MOVE_VERTEX)
                     self.selectShape(curselectshape)
                     return
-                elif curselectshape.containsPoint(point):                                                ##########
+                elif curselectshape.containsPoint(point):                                                   ##########
                 
                     self.selectShape(curselectshape)
                     self.calculateOffsets(curselectshape, point)

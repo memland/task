@@ -109,7 +109,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.labelHist = []
         #self.lastOpenDir = None
 
-        if settings[SETTING_LAST_OPEN_DIR] and os.path.exists(settings[SETTING_LAST_OPEN_DIR]):
+        if settings[SETTING_LAST_OPEN_DIR] and os.path.exists(settings[SETTING_LAST_OPEN_DIR]):             ####open last dir
             self.lastOpenDir = settings[SETTING_LAST_OPEN_DIR]
             self.dirname = settings[SETTING_LAST_OPEN_DIR]
             print 'change dirname and lastopendir'
@@ -183,22 +183,22 @@ class MainWindow(QMainWindow, WindowMixin):
         filelistLayout.addWidget(self.fileListWidget)
         fileListContainer = QWidget()
         fileListContainer.setLayout(filelistLayout)
-        self.filedock = QDockWidget(u'File List', self)                     #change jquery there
+        self.filedock = QDockWidget(u'File List', self)                                     
         self.filedock.setObjectName(u'Files')
         self.filedock.setWidget(fileListContainer)
 
         self.zoomWidget = ZoomWidget()
         self.colorDialog = ColorDialog(parent=self)
 
-        self.canvas = Canvas(parent=self)                                   #what is parent = self??
+        self.canvas = Canvas(parent=self)                                   
         self.canvas.zoomRequest.connect(self.zoomRequest)
-        self.canvas.scrollReq.connect(self.scrollReq)                         ##########
+        self.canvas.scrollReq.connect(self.scrollReq)                                       ##########connnect change scroll event
         
         scroll = QScrollArea()
         scroll.setWidget(self.canvas)
         scroll.setWidgetResizable(True)
         self.scrollBars = {
-            Qt.Vertical: scroll.verticalScrollBar(),                        #grammer???                    
+            Qt.Vertical: scroll.verticalScrollBar(),                                          
             Qt.Horizontal: scroll.horizontalScrollBar()
         }
         self.scrollArea = scroll
@@ -479,10 +479,10 @@ class MainWindow(QMainWindow, WindowMixin):
         self.statusBar().addPermanentWidget(self.labelCoordinates)
 
         # Open Dir if deafult file
-        if self.filePath and os.path.isdir(self.filePath):######
+        if self.filePath and os.path.isdir(self.filePath):                                              ######
             self.importDirImages(self.filePath)
         print settings[SETTING_RECENT_FILES][0]
-        self.queueEvent(partial(self.loadFile, settings[SETTING_RECENT_FILES][0] or ""))                #########
+        self.queueEvent(partial(self.loadFile, settings[SETTING_RECENT_FILES][0] or ""))                ######open history file
     ## Support Functions ##
     def set_format(self, save_format):
         if save_format == 'PascalVOC':
@@ -607,7 +607,7 @@ class MainWindow(QMainWindow, WindowMixin):
         msg = u'Name:{0} \nApp Version:{1} \n{2} '.format(__appname__, __version__, sys.version_info)
         QMessageBox.information(self, u'Information', msg)
 
-    def createShape(self):                                          ##should set priority
+    def createShape(self):                                          
         assert self.beginner()
         self.canvas.setEditing(False)
         self.actions.create.setEnabled(False)
@@ -873,7 +873,7 @@ class MainWindow(QMainWindow, WindowMixin):
     def addZoom(self, increment=10):
         self.setZoom(self.zoomWidget.value() + increment)
 
-    def scrollReq(self,delta ,orientation):
+    def scrollReq(self,delta ,orientation):                                                     #####change scroll position
         h_bar = self.scrollBars[Qt.Horizontal]
         v_bar = self.scrollBars[Qt.Vertical]
         print 'xpos:',delta
@@ -1163,7 +1163,7 @@ class MainWindow(QMainWindow, WindowMixin):
     def openDirDialog(self, _value=False, dirpath=None):
         if not self.mayContinue():
             return
-        print 'open dir'                                            #####
+        
         defaultOpenDirPath = dirpath if dirpath else '.'
         if self.lastOpenDir and os.path.exists(self.lastOpenDir):
             defaultOpenDirPath = self.lastOpenDir
