@@ -148,6 +148,8 @@ class MainWindow(QMainWindow, WindowMixin):
         useDefaultLabelContainer = QWidget()
         useDefaultLabelContainer.setLayout(useDefaultLabelQHBoxLayout)
 
+        ##########self.textButton = QCheckBox(u'asddsad')
+        
         # Create a widget for edit and diffc button
         self.diffcButton = QCheckBox(u'difficult')
         self.diffcButton.setChecked(False)
@@ -183,7 +185,8 @@ class MainWindow(QMainWindow, WindowMixin):
         filelistLayout.addWidget(self.fileListWidget)
         fileListContainer = QWidget()
         fileListContainer.setLayout(filelistLayout)
-        self.filedock = QDockWidget(u'File List', self)                                     
+        self.filedock = QDockWidget(u'File List', self)
+        
         self.filedock.setObjectName(u'Files')
         self.filedock.setWidget(fileListContainer)
 
@@ -193,7 +196,10 @@ class MainWindow(QMainWindow, WindowMixin):
         self.canvas = Canvas(parent=self)                                   
         self.canvas.zoomRequest.connect(self.zoomRequest)
         self.canvas.scrollReq.connect(self.scrollReq)                                       ##########connnect change scroll event
+        self.canvas.changetext.connect(self.changetext)                                      #########
+
         
+                
         scroll = QScrollArea()
         scroll.setWidget(self.canvas)
         scroll.setWidgetResizable(True)
@@ -203,6 +209,7 @@ class MainWindow(QMainWindow, WindowMixin):
         }
         self.scrollArea = scroll
         self.canvas.scrollRequest.connect(self.scrollRequest)
+        
 
         self.canvas.newShape.connect(self.newShape)
         self.canvas.shapeMoved.connect(self.setDirty)
@@ -882,6 +889,10 @@ class MainWindow(QMainWindow, WindowMixin):
         new_v_bar_value = v_bar.value() - orientation*1.3
         h_bar.setValue(new_h_bar_value)
         v_bar.setValue(new_v_bar_value)
+
+    def changetext(self,delta ,orientation):
+        self.filedock.setWindowTitle(u'File List    shape xlength:%d shape ylength:%d'%(delta,-orientation))
+        print 'change'
         
     def zoomRequest(self, delta):
         # get the current scrollbar positions

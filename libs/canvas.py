@@ -33,6 +33,7 @@ class Canvas(QWidget):
     drawingPolygon = pyqtSignal(bool)
 
     scrollReq = pyqtSignal(int, int)                                    ##########connect slot
+    changetext = pyqtSignal(int, int)
   
     CREATE, EDIT = list(range(2))
 
@@ -159,7 +160,7 @@ class Canvas(QWidget):
         # Polygon/Vertex moving.
         if Qt.LeftButton & ev.buttons():
             if self.selectedVertex():
-                
+                self.changetext.emit(self.hShape.points[2].x() - self.hShape.points[0].x(),self.hShape.points[0].y() - self.hShape.points[2].y())
                 self.boundedMoveVertex(pos)
                 self.shapeMoved.emit()
                 self.repaint()
@@ -219,6 +220,7 @@ class Canvas(QWidget):
                 self.setToolTip("Click & drag to move point")
                 self.setStatusTip(self.toolTip())
                 self.update()
+                self.changetext.emit(shape.points[2].x() - shape.points[0].x(),shape.points[0].y() - shape.points[2].y()) #######
                 return
         for shape in reversed([s for s in self.shapes if self.isVisible(s)]):
             if shape.containsPoint(pos):
@@ -227,6 +229,7 @@ class Canvas(QWidget):
                 self.hVertex, self.hShape = None, shape
                 self.setToolTip(
                     "Click & drag to move shape '%s'" % shape.label)
+                self.changetext.emit(shape.points[2].x() - shape.points[0].x(),shape.points[0].y() - shape.points[2].y()) #######
                 self.setStatusTip(self.toolTip())
                 self.overrideCursor(CURSOR_GRAB)
                 self.update()
@@ -360,6 +363,7 @@ class Canvas(QWidget):
             index, shape = self.hVertex, self.hShape
             shape.highlightVertex(index, shape.MOVE_VERTEX)
             self.selectShape(shape)
+            self.changetext.emit(shape.points[2].x() - shape.points[0].x(),shape.points[0].y() - shape.points[2].y()) #######
             return
         
         if isselectshape and self.isVisible(isselectshape):                                                 ###seleced shape has highest priority 
@@ -370,11 +374,13 @@ class Canvas(QWidget):
                     self.hVertex = curselectshape.nearestVertex(point, self.epsilon)
                     curselectshape.highlightVertex(self.hVertex, curselectshape.MOVE_VERTEX)
                     self.selectShape(curselectshape)
+                    self.changetext.emit(curselectshape.points[2].x() - curselectshape.points[0].x(),curselectshape.points[0].y() - curselectshape.points[2].y()) #######
                     return
                 elif curselectshape.containsPoint(point):                                                   ##########
                 
                     self.selectShape(curselectshape)
                     self.calculateOffsets(curselectshape, point)
+                    self.changetext.emit(curselectshape.points[2].x() - curselectshape.points[0].x(),curselectshape.points[0].y() - curselectshape.points[2].y())
                     print 'fine'
                     return
         
@@ -382,6 +388,7 @@ class Canvas(QWidget):
             if self.isVisible(shape) and shape.containsPoint(point):
                 self.selectShape(shape)
                 self.calculateOffsets(shape, point)
+                self.changetext.emit(shape.points[2].x() - shape.points[0].x(),shape.points[0].y() - shape.points[2].y()) #######
                 return
 
     def calculateOffsets(self, shape, point):
@@ -507,7 +514,7 @@ class Canvas(QWidget):
             brush = QBrush(Qt.BDiagPattern)
             p.setBrush(brush)
             p.drawRect(leftTop.x(), leftTop.y(), rectWidth, rectHeight)
-
+            self.changetext.emit(rectWidth, -rectHeight)
         if self.drawing() and not self.prevPoint.isNull() and not self.outOfPixmap(self.prevPoint):
             p.setPen(QColor(0, 0, 0))
             p.drawLine(self.prevPoint.x(), 0, self.prevPoint.x(), self.pixmap.height())
