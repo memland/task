@@ -105,14 +105,15 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # For loading all image under a directory
         self.mImgList = []
-        #self.dirname = None
+        self.dirname = None
         self.labelHist = []
-        #self.lastOpenDir = None
+        self.lastOpenDir = None
 
+        
         if settings[SETTING_LAST_OPEN_DIR] and os.path.exists(settings[SETTING_LAST_OPEN_DIR]):             ####open last dir
             self.lastOpenDir = settings[SETTING_LAST_OPEN_DIR]
             self.dirname = settings[SETTING_LAST_OPEN_DIR]
-            print 'change dirname and lastopendir'
+          #  print 'change dirname and lastopendir'
         else:
             self.lastOpenDir = None
             self.dirname = None
@@ -471,6 +472,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.updateFileMenu()
 
         # Since loading the file may take some time, make sure it runs in the background.
+        print self.filePath
         if self.filePath and os.path.isdir(self.filePath):
             self.queueEvent(partial(self.importDirImages, self.filePath or ""))
         elif self.filePath:
@@ -486,10 +488,14 @@ class MainWindow(QMainWindow, WindowMixin):
         self.statusBar().addPermanentWidget(self.labelCoordinates)
 
         # Open Dir if deafult file
-        if self.filePath and os.path.isdir(self.filePath):                                              ######
-            self.importDirImages(self.filePath)
-        print settings[SETTING_RECENT_FILES][0]
-        self.queueEvent(partial(self.loadFile, settings[SETTING_RECENT_FILES][0] or ""))                ######open history file
+        #if self.filePath and os.path.isdir(self.filePath):                                              ######
+        #    self.importDirImages(self.filePath)
+        #print settings[SETTING_RECENT_FILES][0]
+        try:
+            if settings[SETTING_RECENT_FILES][0] is not None:
+                self.queueEvent(partial(self.loadFile, settings[SETTING_RECENT_FILES][0] or ""))                ######open history file
+        except:
+            pass
     ## Support Functions ##
     def set_format(self, save_format):
         if save_format == 'PascalVOC':
