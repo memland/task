@@ -44,7 +44,8 @@ from libs.yolo_io import YoloReader
 from libs.yolo_io import TXT_EXT
 from libs.ustr import ustr
 from libs.version import __version__
-
+import logging
+import time
 __appname__ = 'labelImg'
 
 # Utility functions and classes.
@@ -90,412 +91,434 @@ class MainWindow(QMainWindow, WindowMixin):
     FIT_WINDOW, FIT_WIDTH, MANUAL_ZOOM = list(range(3))
 
     def __init__(self, defaultFilename=None, defaultPrefdefClassFile=None, defaultSaveDir=None):
-        super(MainWindow, self).__init__()
-        self.setWindowTitle(__appname__)
+        try:
+	    #logging.basicConfig(filename='CountEveryday.log',level=logging.DEBUG)
+	    logging.basicConfig(filename='CountEveryday.log',level= logging.DEBUG,format='%(asctime)s %(levelname)-8s: %(message)s')
+	    logging.info("Main console start!")
+	    self.shapenum = 0
+	    self.picnum = 0
+            super(MainWindow, self).__init__()
+            self.setWindowTitle(__appname__)
 
-        # Load setting in the main thread
-        self.settings = Settings()
-        self.settings.load()
-        settings = self.settings
+            # Load setting in the main thread
+            self.settings = Settings()
+            self.settings.load()
+            settings = self.settings
 
-        # Save as Pascal voc xml
-        self.defaultSaveDir = defaultSaveDir
-        self.usingPascalVocFormat = True
-        self.usingYoloFormat = False
+            # Save as Pascal voc xml
+            self.defaultSaveDir = defaultSaveDir
+            self.usingPascalVocFormat = True
+            self.usingYoloFormat = False
 
-        # For loading all image under a directory
-        self.mImgList = []
-        self.dirname = None
-        self.labelHist = []
-        self.lastOpenDir = None
-
-        
-        if settings[SETTING_LAST_OPEN_DIR] and os.path.exists(settings[SETTING_LAST_OPEN_DIR]):             ####open last dir
-            self.lastOpenDir = settings[SETTING_LAST_OPEN_DIR]
-            self.dirname = settings[SETTING_LAST_OPEN_DIR]
-          #  print 'change dirname and lastopendir'
-        else:
-            self.lastOpenDir = None
+            # For loading all image under a directory
+            self.mImgList = []
             self.dirname = None
+            self.labelHist = []
+            self.lastOpenDir = None
 
-        # Whether we need to save or not.
-        self.dirty = False
 
-        self._noSelectionSlot = False
-        self._beginner = True
-        self.screencastViewer = self.getAvailableScreencastViewer()
-        self.screencast = "https://youtu.be/p0nR2YsCY_U"
+            try:
+                if settings[SETTING_LAST_OPEN_DIR] and os.path.exists(settings[SETTING_LAST_OPEN_DIR]):             ####open last dir
+                    self.lastOpenDir = settings[SETTING_LAST_OPEN_DIR]
+                    self.dirname = settings[SETTING_LAST_OPEN_DIR]
+                  #  print 'change dirname and lastopendir'
+                else:
+                    self.lastOpenDir = None
+                    self.dirname = None
+            except:
+                print 'inter exception lastOpenDir = settings[...]'
+            # Whether we need to save or not.
+            self.dirty = False
 
-        # Load predefined classes to the list
-        self.loadPredefinedClasses(defaultPrefdefClassFile)
+            self._noSelectionSlot = False
+            self._beginner = True
+            self.screencastViewer = self.getAvailableScreencastViewer()
+            self.screencast = "https://youtu.be/p0nR2YsCY_U"
 
-        # Main widgets and related state.
-        self.labelDialog = LabelDialog(parent=self, listItem=self.labelHist)
+            # Load predefined classes to the list
+            self.loadPredefinedClasses(defaultPrefdefClassFile)
 
-        self.itemsToShapes = {}
-        self.shapesToItems = {}
-        self.prevLabelText = ''
+            # Main widgets and related state.
+            self.labelDialog = LabelDialog(parent=self, listItem=self.labelHist)
 
-        listLayout = QVBoxLayout()
-        listLayout.setContentsMargins(0, 0, 0, 0)
+            self.itemsToShapes = {}
+            self.shapesToItems = {}
+            self.prevLabelText = ''
 
-        # Create a widget for using default label
-        self.useDefaultLabelCheckbox = QCheckBox(u'Use default label')
-        self.useDefaultLabelCheckbox.setChecked(False)
-        self.defaultLabelTextLine = QLineEdit()
-        useDefaultLabelQHBoxLayout = QHBoxLayout()
-        useDefaultLabelQHBoxLayout.addWidget(self.useDefaultLabelCheckbox)
-        useDefaultLabelQHBoxLayout.addWidget(self.defaultLabelTextLine)
-        useDefaultLabelContainer = QWidget()
-        useDefaultLabelContainer.setLayout(useDefaultLabelQHBoxLayout)
+            listLayout = QVBoxLayout()
+            listLayout.setContentsMargins(0, 0, 0, 0)
 
-        ##########self.textButton = QCheckBox(u'asddsad')
-        
-        # Create a widget for edit and diffc button
-        self.diffcButton = QCheckBox(u'difficult')
-        self.diffcButton.setChecked(False)
-        self.diffcButton.stateChanged.connect(self.btnstate)
-        self.editButton = QToolButton()
-        self.editButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+            # Create a widget for using default label
+            self.useDefaultLabelCheckbox = QCheckBox(u'Use default label')
+            self.useDefaultLabelCheckbox.setChecked(False)
+            self.defaultLabelTextLine = QLineEdit()
+            useDefaultLabelQHBoxLayout = QHBoxLayout()
+            useDefaultLabelQHBoxLayout.addWidget(self.useDefaultLabelCheckbox)
+            useDefaultLabelQHBoxLayout.addWidget(self.defaultLabelTextLine)
+            useDefaultLabelContainer = QWidget()
+            useDefaultLabelContainer.setLayout(useDefaultLabelQHBoxLayout)
 
-        # Add some of widgets to listLayout
-        listLayout.addWidget(self.editButton)
-        listLayout.addWidget(self.diffcButton)
-        listLayout.addWidget(useDefaultLabelContainer)
+            ##########self.textButton = QCheckBox(u'asddsad')
+            
+            # Create a widget for edit and diffc button
+            self.diffcButton = QCheckBox(u'difficult')
+            self.diffcButton.setChecked(False)
+            self.diffcButton.stateChanged.connect(self.btnstate)
+            self.editButton = QToolButton()
+            self.editButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
-        # Create and add a widget for showing current label items
-        self.labelList = QListWidget()
-        labelListContainer = QWidget()
-        labelListContainer.setLayout(listLayout)
-        self.labelList.itemActivated.connect(self.labelSelectionChanged)
-        self.labelList.itemSelectionChanged.connect(self.labelSelectionChanged)
-        self.labelList.itemDoubleClicked.connect(self.editLabel)
-        # Connect to itemChanged to detect checkbox changes.
-        self.labelList.itemChanged.connect(self.labelItemChanged)
-        listLayout.addWidget(self.labelList)
+            # Add some of widgets to listLayout
+            listLayout.addWidget(self.editButton)
+            listLayout.addWidget(self.diffcButton)
+            listLayout.addWidget(useDefaultLabelContainer)
 
-        self.dock = QDockWidget(u'Box Labels', self)
-        self.dock.setObjectName(u'Labels')
-        self.dock.setWidget(labelListContainer)
+            # Create and add a widget for showing current label items
+            self.labelList = QListWidget()
+            labelListContainer = QWidget()
+            labelListContainer.setLayout(listLayout)
+            self.labelList.itemActivated.connect(self.labelSelectionChanged)
+            self.labelList.itemSelectionChanged.connect(self.labelSelectionChanged)
+            self.labelList.itemDoubleClicked.connect(self.editLabel)
+            # Connect to itemChanged to detect checkbox changes.
+            self.labelList.itemChanged.connect(self.labelItemChanged)
+            listLayout.addWidget(self.labelList)
 
-        # Tzutalin 20160906 : Add file list and dock to move faster
-        self.fileListWidget = QListWidget()
-        self.fileListWidget.itemDoubleClicked.connect(self.fileitemDoubleClicked)
-        filelistLayout = QVBoxLayout()
-        filelistLayout.setContentsMargins(0, 0, 0, 0)
-        filelistLayout.addWidget(self.fileListWidget)
-        fileListContainer = QWidget()
-        fileListContainer.setLayout(filelistLayout)
-        self.filedock = QDockWidget(u'File List', self)
-        
-        self.filedock.setObjectName(u'Files')
-        self.filedock.setWidget(fileListContainer)
+            self.dock = QDockWidget(u'Box Labels', self)
+            self.dock.setObjectName(u'Labels')
+            self.dock.setWidget(labelListContainer)
 
-        self.zoomWidget = ZoomWidget()
-        self.colorDialog = ColorDialog(parent=self)
+            # Tzutalin 20160906 : Add file list and dock to move faster
+            self.fileListWidget = QListWidget()
+            self.fileListWidget.itemDoubleClicked.connect(self.fileitemDoubleClicked)
+            filelistLayout = QVBoxLayout()
+            filelistLayout.setContentsMargins(0, 0, 0, 0)
+            filelistLayout.addWidget(self.fileListWidget)
+            fileListContainer = QWidget()
+            fileListContainer.setLayout(filelistLayout)
+            self.filedock = QDockWidget(u'File List', self)
+            
+            self.filedock.setObjectName(u'Files')
+            self.filedock.setWidget(fileListContainer)
 
-        self.canvas = Canvas(parent=self)                                   
-        self.canvas.zoomRequest.connect(self.zoomRequest)
-        self.canvas.scrollReq.connect(self.scrollReq)                                       ##########connnect change scroll event
-        self.canvas.changetext.connect(self.changetext)                                      #########
+            self.zoomWidget = ZoomWidget()
+            self.colorDialog = ColorDialog(parent=self)
 
-        
-                
-        scroll = QScrollArea()
-        scroll.setWidget(self.canvas)
-        scroll.setWidgetResizable(True)
-        self.scrollBars = {
-            Qt.Vertical: scroll.verticalScrollBar(),                                          
-            Qt.Horizontal: scroll.horizontalScrollBar()
-        }
-        self.scrollArea = scroll
-        self.canvas.scrollRequest.connect(self.scrollRequest)
-        
+            self.canvas = Canvas(parent=self)                                   
+            self.canvas.zoomRequest.connect(self.zoomRequest)
+            self.canvas.scrollReq.connect(self.scrollReq)                                       ##########connnect change scroll event
+            self.canvas.changetext.connect(self.changetext)                                      #########
+	    self.canvas.increasenum.connect(self.increasenum)
+	    self.canvas.decreasenum.connect(self.decreasenum)
+            
+                    
+            scroll = QScrollArea()
+            scroll.setWidget(self.canvas)
+            scroll.setWidgetResizable(True)
+            self.scrollBars = {
+                Qt.Vertical: scroll.verticalScrollBar(),                                          
+                Qt.Horizontal: scroll.horizontalScrollBar()
+            }
+            self.scrollArea = scroll
+            self.canvas.scrollRequest.connect(self.scrollRequest)
+            
 
-        self.canvas.newShape.connect(self.newShape)
-        self.canvas.shapeMoved.connect(self.setDirty)
-        self.canvas.selectionChanged.connect(self.shapeSelectionChanged)
-        self.canvas.drawingPolygon.connect(self.toggleDrawingSensitive)
+            self.canvas.newShape.connect(self.newShape)
+            self.canvas.shapeMoved.connect(self.setDirty)
+            self.canvas.selectionChanged.connect(self.shapeSelectionChanged)
+            self.canvas.drawingPolygon.connect(self.toggleDrawingSensitive)
 
-        self.setCentralWidget(scroll)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.dock)
-        # Tzutalin 20160906 : Add file list and dock to move faster
-        self.addDockWidget(Qt.RightDockWidgetArea, self.filedock)
-        self.filedock.setFeatures(QDockWidget.DockWidgetFloatable)
+            self.setCentralWidget(scroll)
+            self.addDockWidget(Qt.RightDockWidgetArea, self.dock)
+            # Tzutalin 20160906 : Add file list and dock to move faster
+            self.addDockWidget(Qt.RightDockWidgetArea, self.filedock)
+            self.filedock.setFeatures(QDockWidget.DockWidgetFloatable)
 
-        self.dockFeatures = QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetFloatable
-        self.dock.setFeatures(self.dock.features() ^ self.dockFeatures)
+            self.dockFeatures = QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetFloatable
+            self.dock.setFeatures(self.dock.features() ^ self.dockFeatures)
 
-        # Actions
-        action = partial(newAction, self)
-        quit = action('&Quit', self.close,
-                      'Ctrl+Q', 'quit', u'Quit application')
+            # Actions
+            action = partial(newAction, self)
+            quit = action('&Quit', self.close,
+                          'Ctrl+Q', 'quit', u'Quit application')
 
-        open = action('&Open', self.openFile,
-                      'Ctrl+O', 'open', u'Open image or label file')
+            open = action('&Open', self.openFile,
+                          'Ctrl+O', 'open', u'Open image or label file')
 
-        opendir = action('&Open Dir', self.openDirDialog,
-                         'Ctrl+u', 'open', u'Open Dir')
+            opendir = action('&Open Dir', self.openDirDialog,
+                             'Ctrl+u', 'open', u'Open Dir')
 
-        changeSavedir = action('&Change Save Dir', self.changeSavedirDialog,
-                               'Ctrl+r', 'open', u'Change default saved Annotation dir')
+            changeSavedir = action('&Change Save Dir', self.changeSavedirDialog,
+                                   'Ctrl+r', 'open', u'Change default saved Annotation dir')
 
-        openAnnotation = action('&Open Annotation', self.openAnnotationDialog,
-                                'Ctrl+Shift+O', 'open', u'Open Annotation')
+            openAnnotation = action('&Open Annotation', self.openAnnotationDialog,
+                                    'Ctrl+Shift+O', 'open', u'Open Annotation')
 
-        openNextImg = action('&Next Image', self.openNextImg,
-                             'd', 'next', u'Open Next')
+            openNextImg = action('&Next Image', self.openNextImg,
+                                 'd', 'next', u'Open Next')
 
-        openPrevImg = action('&Prev Image', self.openPrevImg,
-                             'a', 'prev', u'Open Prev')
+            openPrevImg = action('&Prev Image', self.openPrevImg,
+                                 'a', 'prev', u'Open Prev')
 
-        verify = action('&Verify Image', self.verifyImg,
-                        'space', 'verify', u'Verify Image')
+            verify = action('&Verify Image', self.verifyImg,
+                            'space', 'verify', u'Verify Image')
 
-        save = action('&Save', self.saveFile,
-                      'Ctrl+S', 'save', u'Save labels to file', enabled=False)
+            save = action('&Save', self.saveFile,
+                          'Ctrl+S', 'save', u'Save labels to file', enabled=False)
 
-        save_format = action('&PascalVOC', self.change_format,
-                      'Ctrl+', 'format_voc', u'Change save format', enabled=True)
+            save_format = action('&PascalVOC', self.change_format,
+                          'Ctrl+', 'format_voc', u'Change save format', enabled=True)
 
-        saveAs = action('&Save As', self.saveFileAs,
-                        'Ctrl+Shift+S', 'save-as', u'Save labels to a different file', enabled=False)
+            saveAs = action('&Save As', self.saveFileAs,
+                            'Ctrl+Shift+S', 'save-as', u'Save labels to a different file', enabled=False)
 
-        close = action('&Close', self.closeFile, 'Ctrl+W', 'close', u'Close current file')
+            close = action('&Close', self.closeFile, 'Ctrl+W', 'close', u'Close current file')
 
-        resetAll = action('&ResetAll', self.resetAll, None, 'resetall', u'Reset all')
+            resetAll = action('&ResetAll', self.resetAll, None, 'resetall', u'Reset all')
 
-        color1 = action('Box Line Color', self.chooseColor1,
-                        'Ctrl+L', 'color_line', u'Choose Box line color')
+            color1 = action('Box Line Color', self.chooseColor1,
+                            'Ctrl+L', 'color_line', u'Choose Box line color')
 
-        createMode = action('Create\nRectBox', self.setCreateMode,
-                            'w', 'new', u'Start drawing Boxs', enabled=False)
-        editMode = action('&Edit\nRectBox', self.setEditMode,
-                          'Ctrl+J', 'edit', u'Move and edit Boxs', enabled=False)
+            createMode = action('Create\nRectBox', self.setCreateMode,
+                                'w', 'new', u'Start drawing Boxs', enabled=False)
+            editMode = action('&Edit\nRectBox', self.setEditMode,
+                              'Ctrl+J', 'edit', u'Move and edit Boxs', enabled=False)
 
-        create = action('Create\nRectBox', self.createShape,
-                        'w', 'new', u'Draw a new Box', enabled=False)
-        delete = action('Delete\nRectBox', self.deleteSelectedShape,
-                        'Delete', 'delete', u'Delete', enabled=False)
-        copy = action('&Duplicate\nRectBox', self.copySelectedShape,
-                      'Ctrl+D', 'copy', u'Create a duplicate of the selected Box',
-                      enabled=False)
+            create = action('Create\nRectBox', self.createShape,
+                            'w', 'new', u'Draw a new Box', enabled=False)
+            delete = action('Delete\nRectBox', self.deleteSelectedShape,
+                            'Delete', 'delete', u'Delete', enabled=False)
+            copy = action('&Duplicate\nRectBox', self.copySelectedShape,
+                          'Ctrl+D', 'copy', u'Create a duplicate of the selected Box',
+                          enabled=False)
 
-        advancedMode = action('&Advanced Mode', self.toggleAdvancedMode,
-                              'Ctrl+Shift+A', 'expert', u'Switch to advanced mode',
-                              checkable=True)
+            advancedMode = action('&Advanced Mode', self.toggleAdvancedMode,
+                                  'Ctrl+Shift+A', 'expert', u'Switch to advanced mode',
+                                  checkable=True)
 
-        hideAll = action('&Hide\nRectBox', partial(self.togglePolygons, False),
-                         'Ctrl+H', 'hide', u'Hide all Boxs',
-                         enabled=False)
-        showAll = action('&Show\nRectBox', partial(self.togglePolygons, True),
-                         'Ctrl+A', 'hide', u'Show all Boxs',
-                         enabled=False)
+            hideAll = action('&Hide\nRectBox', partial(self.togglePolygons, False),
+                             'Ctrl+H', 'hide', u'Hide all Boxs',
+                             enabled=False)
+            showAll = action('&Show\nRectBox', partial(self.togglePolygons, True),
+                             'Ctrl+A', 'hide', u'Show all Boxs',
+                             enabled=False)
 
-        help = action('&Tutorial', self.showTutorialDialog, None, 'help', u'Show demos')
-        showInfo = action('&Information', self.showInfoDialog, None, 'help', u'Information')
+            help = action('&Tutorial', self.showTutorialDialog, None, 'help', u'Show demos')
+            showInfo = action('&Information', self.showInfoDialog, None, 'help', u'Information')
 
-        zoom = QWidgetAction(self)
-        zoom.setDefaultWidget(self.zoomWidget)
-        self.zoomWidget.setWhatsThis(
-            u"Zoom in or out of the image. Also accessible with"
-            " %s and %s from the canvas." % (fmtShortcut("Ctrl+[-+]"),
-                                             fmtShortcut("Ctrl+Wheel")))                        #change zoom in/out hotkey
-        self.zoomWidget.setEnabled(False)                                                       #change wheel only as well
+            zoom = QWidgetAction(self)
+            zoom.setDefaultWidget(self.zoomWidget)
+            self.zoomWidget.setWhatsThis(
+                u"Zoom in or out of the image. Also accessible with"
+                " %s and %s from the canvas." % (fmtShortcut("Ctrl+[-+]"),
+                                                 fmtShortcut("Ctrl+Wheel")))                        #change zoom in/out hotkey
+            self.zoomWidget.setEnabled(False)                                                       #change wheel only as well
 
-        zoomIn = action('Zoom &In', partial(self.addZoom, 10),
-                        'Ctrl++', 'zoom-in', u'Increase zoom level', enabled=False)
-        zoomOut = action('&Zoom Out', partial(self.addZoom, -10),
-                         'Ctrl+-', 'zoom-out', u'Decrease zoom level', enabled=False)
-        zoomOrg = action('&Original size', partial(self.setZoom, 100),
-                         'Ctrl+=', 'zoom', u'Zoom to original size', enabled=False)
-        fitWindow = action('&Fit Window', self.setFitWindow,
-                           'Ctrl+F', 'fit-window', u'Zoom follows window size',
-                           checkable=True, enabled=False)
-        fitWidth = action('Fit &Width', self.setFitWidth,
-                          'Ctrl+Shift+F', 'fit-width', u'Zoom follows window width',
-                          checkable=True, enabled=False)
-        # Group zoom controls into a list for easier toggling.
-        zoomActions = (self.zoomWidget, zoomIn, zoomOut,
-                       zoomOrg, fitWindow, fitWidth)
-        self.zoomMode = self.MANUAL_ZOOM
-        self.scalers = {
-            self.FIT_WINDOW: self.scaleFitWindow,
-            self.FIT_WIDTH: self.scaleFitWidth,
-            # Set to one to scale to 100% when loading files.
-            self.MANUAL_ZOOM: lambda: 1,
-        }
+            zoomIn = action('Zoom &In', partial(self.addZoom, 10),
+                            'Ctrl++', 'zoom-in', u'Increase zoom level', enabled=False)
+            zoomOut = action('&Zoom Out', partial(self.addZoom, -10),
+                             'Ctrl+-', 'zoom-out', u'Decrease zoom level', enabled=False)
+            zoomOrg = action('&Original size', partial(self.setZoom, 100),
+                             'Ctrl+=', 'zoom', u'Zoom to original size', enabled=False)
+            fitWindow = action('&Fit Window', self.setFitWindow,
+                               'Ctrl+F', 'fit-window', u'Zoom follows window size',
+                               checkable=True, enabled=False)
+            fitWidth = action('Fit &Width', self.setFitWidth,
+                              'Ctrl+Shift+F', 'fit-width', u'Zoom follows window width',
+                              checkable=True, enabled=False)
+            # Group zoom controls into a list for easier toggling.
+            zoomActions = (self.zoomWidget, zoomIn, zoomOut,
+                           zoomOrg, fitWindow, fitWidth)
+            self.zoomMode = self.MANUAL_ZOOM
+            self.scalers = {
+                self.FIT_WINDOW: self.scaleFitWindow,
+                self.FIT_WIDTH: self.scaleFitWidth,
+                # Set to one to scale to 100% when loading files.
+                self.MANUAL_ZOOM: lambda: 1,
+            }
 
-        edit = action('&Edit Label', self.editLabel,
-                      'Ctrl+E', 'edit', u'Modify the label of the selected Box',
-                      enabled=False)
-        self.editButton.setDefaultAction(edit)
+            edit = action('&Edit Label', self.editLabel,
+                          'Ctrl+E', 'edit', u'Modify the label of the selected Box',
+                          enabled=False)
+            self.editButton.setDefaultAction(edit)
 
-        shapeLineColor = action('Shape &Line Color', self.chshapeLineColor,
-                                icon='color_line', tip=u'Change the line color for this specific shape',
-                                enabled=False)
-        shapeFillColor = action('Shape &Fill Color', self.chshapeFillColor,
-                                icon='color', tip=u'Change the fill color for this specific shape',
-                                enabled=False)
+            shapeLineColor = action('Shape &Line Color', self.chshapeLineColor,
+                                    icon='color_line', tip=u'Change the line color for this specific shape',
+                                    enabled=False)
+            shapeFillColor = action('Shape &Fill Color', self.chshapeFillColor,
+                                    icon='color', tip=u'Change the fill color for this specific shape',
+                                    enabled=False)
 
-        labels = self.dock.toggleViewAction()
-        labels.setText('Show/Hide Label Panel')
-        labels.setShortcut('Ctrl+Shift+L')
+            labels = self.dock.toggleViewAction()
+            labels.setText('Show/Hide Label Panel')
+            labels.setShortcut('Ctrl+Shift+L')
 
-        # Lavel list context menu.
-        labelMenu = QMenu()
-        addActions(labelMenu, (edit, delete))
-        self.labelList.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.labelList.customContextMenuRequested.connect(
-            self.popLabelListMenu)
+            # Lavel list context menu.
+            labelMenu = QMenu()
+            addActions(labelMenu, (edit, delete))
+            self.labelList.setContextMenuPolicy(Qt.CustomContextMenu)
+            self.labelList.customContextMenuRequested.connect(
+                self.popLabelListMenu)
 
-        # Store actions for further handling.
-        self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, close=close, resetAll = resetAll,
-                              lineColor=color1, create=create, delete=delete, edit=edit, copy=copy,
-                              createMode=createMode, editMode=editMode, advancedMode=advancedMode,
-                              shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
-                              zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
-                              fitWindow=fitWindow, fitWidth=fitWidth,
-                              zoomActions=zoomActions,
-                              fileMenuActions=(
-                                  open, opendir, save, saveAs, close, resetAll, quit),
-                              beginner=(), advanced=(),
-                              editMenu=(edit, copy, delete,
-                                        None, color1),
-                              beginnerContext=(create, edit, copy, delete),
-                              advancedContext=(createMode, editMode, edit, copy,
-                                               delete, shapeLineColor, shapeFillColor),
-                              onLoadActive=(
-                                  close, create, createMode, editMode),
-                              onShapesPresent=(saveAs, hideAll, showAll))
+            # Store actions for further handling.
+            self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, close=close, resetAll = resetAll,
+                                  lineColor=color1, create=create, delete=delete, edit=edit, copy=copy,
+                                  createMode=createMode, editMode=editMode, advancedMode=advancedMode,
+                                  shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
+                                  zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
+                                  fitWindow=fitWindow, fitWidth=fitWidth,
+                                  zoomActions=zoomActions,
+                                  fileMenuActions=(
+                                      open, opendir, save, saveAs, close, resetAll, quit),
+                                  beginner=(), advanced=(),
+                                  editMenu=(edit, copy, delete,
+                                            None, color1),
+                                  beginnerContext=(create, edit, copy, delete),
+                                  advancedContext=(createMode, editMode, edit, copy,
+                                                   delete, shapeLineColor, shapeFillColor),
+                                  onLoadActive=(
+                                      close, create, createMode, editMode),
+                                  onShapesPresent=(saveAs, hideAll, showAll))
 
-        self.menus = struct(
-            file=self.menu('&File'),
-            edit=self.menu('&Edit'),
-            view=self.menu('&View'),
-            help=self.menu('&Help'),
-            recentFiles=QMenu('Open &Recent'),
-            labelList=labelMenu)
+            self.menus = struct(
+                file=self.menu('&File'),
+                edit=self.menu('&Edit'),
+                view=self.menu('&View'),
+                help=self.menu('&Help'),
+                recentFiles=QMenu('Open &Recent'),
+                labelList=labelMenu)
 
-        # Auto saving : Enable auto saving if pressing next
-        self.autoSaving = QAction("Auto Saving", self)
-        self.autoSaving.setCheckable(True)
-        self.autoSaving.setChecked(settings.get(SETTING_AUTO_SAVE, False))
-        # Sync single class mode from PR#106
-        self.singleClassMode = QAction("Single Class Mode", self)
-        self.singleClassMode.setShortcut("Ctrl+Shift+S")
-        self.singleClassMode.setCheckable(True)
-        self.singleClassMode.setChecked(settings.get(SETTING_SINGLE_CLASS, False))
-        self.lastLabel = None
+            # Auto saving : Enable auto saving if pressing next
+            self.autoSaving = QAction("Auto Saving", self)
+            self.autoSaving.setCheckable(True)
+            self.autoSaving.setChecked(settings.get(SETTING_AUTO_SAVE, False))
+            # Sync single class mode from PR#106
+            self.singleClassMode = QAction("Single Class Mode", self)
+            self.singleClassMode.setShortcut("Ctrl+Shift+S")
+            self.singleClassMode.setCheckable(True)
+            self.singleClassMode.setChecked(settings.get(SETTING_SINGLE_CLASS, False))
+            self.lastLabel = None
 
-        addActions(self.menus.file,
-                   (open, opendir, changeSavedir, openAnnotation, self.menus.recentFiles, save, save_format, saveAs, close, resetAll, quit))
-        addActions(self.menus.help, (help, showInfo))
-        addActions(self.menus.view, (
-            self.autoSaving,
-            self.singleClassMode,
-            labels, advancedMode, None,
-            hideAll, showAll, None,
-            zoomIn, zoomOut, zoomOrg, None,
-            fitWindow, fitWidth))
+            addActions(self.menus.file,
+                       (open, opendir, changeSavedir, openAnnotation, self.menus.recentFiles, save, save_format, saveAs, close, resetAll, quit))
+            addActions(self.menus.help, (help, showInfo))
+            addActions(self.menus.view, (
+                self.autoSaving,
+                self.singleClassMode,
+                labels, advancedMode, None,
+                hideAll, showAll, None,
+                zoomIn, zoomOut, zoomOrg, None,
+                fitWindow, fitWidth))
 
-        self.menus.file.aboutToShow.connect(self.updateFileMenu)
+            self.menus.file.aboutToShow.connect(self.updateFileMenu)
 
-        # Custom context menu for the canvas widget:
-        addActions(self.canvas.menus[0], self.actions.beginnerContext)
-        addActions(self.canvas.menus[1], (
-            action('&Copy here', self.copyShape),
-            action('&Move here', self.moveShape)))
+            # Custom context menu for the canvas widget:
+            addActions(self.canvas.menus[0], self.actions.beginnerContext)
+            addActions(self.canvas.menus[1], (
+                action('&Copy here', self.copyShape),
+                action('&Move here', self.moveShape)))
 
-        self.tools = self.toolbar('Tools')
-        self.actions.beginner = (
-            open, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, create, copy, delete, None,
-            zoomIn, zoom, zoomOut, fitWindow, fitWidth)
+            self.tools = self.toolbar('Tools')
+            self.actions.beginner = (
+                open, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, create, copy, delete, None,
+                zoomIn, zoom, zoomOut, fitWindow, fitWidth)
 
-        self.actions.advanced = (
-            open, opendir, changeSavedir, openNextImg, openPrevImg, save, save_format, None,
-            createMode, editMode, None,
-            hideAll, showAll)
+            self.actions.advanced = (
+                open, opendir, changeSavedir, openNextImg, openPrevImg, save, save_format, None,
+                createMode, editMode, None,
+                hideAll, showAll)
 
-        self.statusBar().showMessage('%s started.' % __appname__)
-        self.statusBar().show()
-
-        # Application state.
-        self.image = QImage()
-        self.filePath = ustr(self.lastOpenDir)
-        self.recentFiles = []
-        self.maxRecent = 7
-        self.lineColor = None
-        self.fillColor = None
-        self.zoom_level = 100
-        self.fit_window = False
-        # Add Chris
-        self.difficult = False
-
-        ## Fix the compatible issue for qt4 and qt5. Convert the QStringList to python list
-        if settings.get(SETTING_RECENT_FILES):
-            if have_qstring():
-                recentFileQStringList = settings.get(SETTING_RECENT_FILES)
-                self.recentFiles = [ustr(i) for i in recentFileQStringList]
-            else:
-                self.recentFiles = recentFileQStringList = settings.get(SETTING_RECENT_FILES)
-
-        size = settings.get(SETTING_WIN_SIZE, QSize(600, 500))
-        position = settings.get(SETTING_WIN_POSE, QPoint(0, 0))
-        self.resize(size)
-        self.move(position)
-        saveDir = ustr(settings.get(SETTING_SAVE_DIR, None))
-        self.lastOpenDir = ustr(settings.get(SETTING_LAST_OPEN_DIR, None))
-        if self.defaultSaveDir is None and saveDir is not None and os.path.exists(saveDir):
-            self.defaultSaveDir = saveDir
-            self.statusBar().showMessage('%s started. Annotation will be saved to %s' %
-                                         (__appname__, self.defaultSaveDir))
+            self.statusBar().showMessage('%s started.' % __appname__)
             self.statusBar().show()
 
-        self.restoreState(settings.get(SETTING_WIN_STATE, QByteArray()))
-        Shape.line_color = self.lineColor = QColor(settings.get(SETTING_LINE_COLOR, DEFAULT_LINE_COLOR))
-        Shape.fill_color = self.fillColor = QColor(settings.get(SETTING_FILL_COLOR, DEFAULT_FILL_COLOR))
-        self.canvas.setDrawingColor(self.lineColor)
-        # Add chris
-        Shape.difficult = self.difficult
+            # Application state.
+            self.image = QImage()
+            self.filePath = ustr(self.lastOpenDir)
+            self.recentFiles = []
+            self.maxRecent = 7
+            self.lineColor = None
+            self.fillColor = None
+            self.zoom_level = 100
+            self.fit_window = False
+            # Add Chris
+            self.difficult = False
 
-        def xbool(x):
-            if isinstance(x, QVariant):
-                return x.toBool()
-            return bool(x)
+            ## Fix the compatible issue for qt4 and qt5. Convert the QStringList to python list
+            if settings.get(SETTING_RECENT_FILES):
+                if have_qstring():
+                    recentFileQStringList = settings.get(SETTING_RECENT_FILES)
+                    self.recentFiles = [ustr(i) for i in recentFileQStringList]
+                else:
+                    self.recentFiles = recentFileQStringList = settings.get(SETTING_RECENT_FILES)
 
-        if xbool(settings.get(SETTING_ADVANCE_MODE, False)):
-            self.actions.advancedMode.setChecked(True)
-            self.toggleAdvancedMode()
+            size = settings.get(SETTING_WIN_SIZE, QSize(600, 500))
+            position = settings.get(SETTING_WIN_POSE, QPoint(0, 0))
+            self.resize(size)
+            self.move(position)
+            saveDir = ustr(settings.get(SETTING_SAVE_DIR, None))
+            self.lastOpenDir = ustr(settings.get(SETTING_LAST_OPEN_DIR, None))
+            if self.defaultSaveDir is None and saveDir is not None and os.path.exists(saveDir):
+                self.defaultSaveDir = saveDir
+                self.statusBar().showMessage('%s started. Annotation will be saved to %s' %
+                                             (__appname__, self.defaultSaveDir))
+                self.statusBar().show()
 
-        # Populate the File menu dynamically.
-        self.updateFileMenu()
+            self.restoreState(settings.get(SETTING_WIN_STATE, QByteArray()))
+            Shape.line_color = self.lineColor = QColor(settings.get(SETTING_LINE_COLOR, DEFAULT_LINE_COLOR))
+            Shape.fill_color = self.fillColor = QColor(settings.get(SETTING_FILL_COLOR, DEFAULT_FILL_COLOR))
+            self.canvas.setDrawingColor(self.lineColor)
+            # Add chris
+            Shape.difficult = self.difficult
 
-        # Since loading the file may take some time, make sure it runs in the background.
-        print self.filePath
-        if self.filePath and os.path.isdir(self.filePath):
-            self.queueEvent(partial(self.importDirImages, self.filePath or ""))
-        elif self.filePath:
-            self.queueEvent(partial(self.loadFile, self.filePath or ""))
+            def xbool(x):
+                if isinstance(x, QVariant):
+                    return x.toBool()
+                return bool(x)
 
-        # Callbacks:
-        self.zoomWidget.valueChanged.connect(self.paintCanvas)
+            if xbool(settings.get(SETTING_ADVANCE_MODE, False)):
+                self.actions.advancedMode.setChecked(True)
+                self.toggleAdvancedMode()
 
-        self.populateModeActions()
+            # Populate the File menu dynamically.
+            self.updateFileMenu()
 
-        # Display cursor coordinates at the right of status bar
-        self.labelCoordinates = QLabel('')
-        self.statusBar().addPermanentWidget(self.labelCoordinates)
+            # Since loading the file may take some time, make sure it runs in the background.
+            print self.filePath
+            if self.filePath and os.path.isdir(self.filePath):
+                self.queueEvent(partial(self.importDirImages, self.filePath or ""))
+            elif self.filePath:
+                self.queueEvent(partial(self.loadFile, self.filePath or ""))
 
-        # Open Dir if deafult file
-        #if self.filePath and os.path.isdir(self.filePath):                                              ######
-        #    self.importDirImages(self.filePath)
-        #print settings[SETTING_RECENT_FILES][0]
-        try:
-            if settings[SETTING_RECENT_FILES][0] is not None:
-                self.queueEvent(partial(self.loadFile, settings[SETTING_RECENT_FILES][0] or ""))                ######open history file
-        except:
-            pass
+            # Callbacks:
+            self.zoomWidget.valueChanged.connect(self.paintCanvas)
+
+            self.populateModeActions()
+
+            # Display cursor coordinates at the right of status bar
+            self.labelCoordinates = QLabel('')
+            self.statusBar().addPermanentWidget(self.labelCoordinates)
+
+            # Open Dir if deafult file
+            #if self.filePath and os.path.isdir(self.filePath):                                              ######
+            #    self.importDirImages(self.filePath)
+            #print settings[SETTING_RECENT_FILES][0]
+            try:
+                if settings[SETTING_RECENT_FILES][0] is not None:
+                    self.queueEvent(partial(self.loadFile, settings[SETTING_RECENT_FILES][0] or ""))                ######open history file
+            except:
+                #print repr(e)
+		logging.exception('queueEvent-open least file fail!')
+                print 'inter exception'
+                pass
+            #print 'console test'
+            #atest = 1/0
+            #self.queueEvent(partial(self.loadFile,"../sadfasdf")) 
+        except Exception as err:
+	    #logging.warning('mainwindows init into exception'+str(err))
+            print 'main init into exception'
+            logging.exception('mainwindows init into exception')
+            
+            #print repr(err)
+            
     ## Support Functions ##
     def set_format(self, save_format):
         if save_format == 'PascalVOC':
@@ -630,6 +653,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.actions.editMode.setEnabled(not drawing)
         if not drawing and self.beginner():
             # Cancel creation.
+	    self.shapenum -= 1
             print('Cancel creation.')
             self.canvas.setEditing(True)
             self.canvas.restoreCursor()
@@ -775,6 +799,9 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def saveLabels(self, annotationFilePath):
         annotationFilePath = ustr(annotationFilePath)
+	if not os.path.isfile(annotationFilePath + XML_EXT):
+	    print 'the open file is',annotationFilePath + XML_EXT
+	    self.picnum += 1
         if self.labelFile is None:
             self.labelFile = LabelFile()
             self.labelFile.verified = self.canvas.verified
@@ -873,10 +900,12 @@ class MainWindow(QMainWindow, WindowMixin):
             self.canvas.resetAllLines()
 
     def scrollRequest(self, delta, orientation):
-        units = - delta / (8 * 15)
-        bar = self.scrollBars[orientation]
-        bar.setValue(bar.value() + bar.singleStep() * units)
-
+        try:    
+            units = - delta / (8 * 15)
+            bar = self.scrollBars[orientation]
+            bar.setValue(bar.value() + bar.singleStep() * units)
+        except Exception ,err:
+            logging.exception(err)
     def setZoom(self, value):
         self.actions.fitWidth.setChecked(False)
         self.actions.fitWindow.setChecked(False)
@@ -887,19 +916,33 @@ class MainWindow(QMainWindow, WindowMixin):
         self.setZoom(self.zoomWidget.value() + increment)
 
     def scrollReq(self,delta ,orientation):                                                     #####change scroll position
-        h_bar = self.scrollBars[Qt.Horizontal]
-        v_bar = self.scrollBars[Qt.Vertical]
-        print 'xpos:',delta
-        print 'ypos:',orientation
-        new_h_bar_value = h_bar.value() - delta*1.3
-        new_v_bar_value = v_bar.value() - orientation*1.3
-        h_bar.setValue(new_h_bar_value)
-        v_bar.setValue(new_v_bar_value)
-
+        try:
+            h_bar = self.scrollBars[Qt.Horizontal]
+            v_bar = self.scrollBars[Qt.Vertical]
+            
+            new_h_bar_value = h_bar.value() - delta*1.3
+            new_v_bar_value = v_bar.value() - orientation*1.3
+            h_bar.setValue(new_h_bar_value)
+            v_bar.setValue(new_v_bar_value)
+        except Exception,err:
+            logging.exception(err)
     def changetext(self,delta ,orientation):
-        self.filedock.setWindowTitle(u'File List    shape xlength:%d shape ylength:%d'%(delta,-orientation))
-        print 'change'
-        
+        try:
+            self.filedock.setWindowTitle(u'File List x:%d y:%d'%(delta,-orientation))
+        except Exception,err:
+            logging.exception(err)
+    def increasenum(self): 
+    	try:
+	    self.shapenum += 1
+	except Exception,err:
+	    logging.exception(err)
+	    
+    def decreasenum(self):
+    	try:
+	    self.shapenum -= 1
+	except Exception,err:
+	    logging.exception(err)
+	    
     def zoomRequest(self, delta):
         # get the current scrollbar positions
         # calculate the percentages ~ coordinates
@@ -1110,7 +1153,8 @@ class MainWindow(QMainWindow, WindowMixin):
         settings[SETTING_RECENT_FILES] = self.recentFiles
         
         print self.recentFiles[0]
-        
+        logging.info('close Mainwindows!')
+	logging.info('add %d xml and %d shapes this time!!!!!!!!!!!!!!!',self.picnum,self.shapenum)
         settings[SETTING_ADVANCE_MODE] = not self._beginner
         if self.defaultSaveDir and os.path.exists(self.defaultSaveDir):
             settings[SETTING_SAVE_DIR] = ustr(self.defaultSaveDir)
@@ -1392,6 +1436,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.canvas.endMove(copy=True)
         self.addLabel(self.canvas.selectedShape)
         self.setDirty()
+	self.shapenum += 1
 
     def moveShape(self):
         self.canvas.endMove(copy=False)

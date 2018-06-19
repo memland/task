@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['labelImg.py'],
-             pathex=['../', '../libs', 'D:\\labelImg-master\\libs'],
+             pathex=['../', '../libs/', 'D:\\labelimg-master\\libs'],
              binaries=None,
              datas=None,
              hiddenimports=[],
@@ -25,4 +25,4 @@ exe = EXE(pyz,
           debug=False,
           strip=False,
           upx=True,
-          console=False )
+          console=True )
